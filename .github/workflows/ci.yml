@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Install Python tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core ansible-lint yamllint
+          ansible-galaxy collection install ansible.posix
+
+      - name: Validate shell scripts (bash -n)
+        run: |
+          bash -n script/install-host-prereqs.sh
+          bash -n script/run-vllm-container.sh
+          bash -n script/start-qwen36-27b.sh
+          bash -n script/validate-endpoint.sh
+          bash -n script/benchmark-qwen36-27b.sh
+
+      - name: Lint shell scripts (shellcheck)
+        run: |
+          shellcheck script/*.sh
+
+      - name: Lint YAML
+        run: |
+          yamllint ansible .github/workflows
+
+      - name: Validate Ansible syntax
+        run: |
+          ansible-playbook -i ansible/hosts.ini ansible/deploy-mi300x.yml --syntax-check
