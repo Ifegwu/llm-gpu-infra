@@ -63,7 +63,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: validate
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     environment: production
     env:
       MI300X_PUBLIC_IP: ${{ secrets.MI300X_PUBLIC_IP }}
@@ -108,7 +108,7 @@ jobs:
         run: |
           echo "Testing TCP connectivity to ${MI300X_PUBLIC_IP}:22"
           nc -zv -w 10 "${MI300X_PUBLIC_IP}" 22 || (echo "Cannot reach SSH port 22 from GitHub runner. Check cloud firewall/host firewall/network ACL." && exit 1)
-          ssh -o BatchMode=yes -o ConnectTimeout=10 "${MI300X_SSH_USER}@${MI300X_PUBLIC_IP}" "echo SSH connectivity OK"
+          ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${MI300X_SSH_USER}@${MI300X_PUBLIC_IP}" "echo SSH connectivity OK"
 
       - name: Deploy with Ansible
         run: |
@@ -119,7 +119,7 @@ jobs:
 
       - name: Capture and print baseline report
         run: |
-          ssh -o StrictHostKeyChecking=no "${MI300X_SSH_USER}@${MI300X_PUBLIC_IP}" "\
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${MI300X_SSH_USER}@${MI300X_PUBLIC_IP}" "\
             cd /opt/llm-gpu-infra && \
             chmod +x script/capture-baseline-report.sh && \
             script/capture-baseline-report.sh script http://127.0.0.1:8000 && \
