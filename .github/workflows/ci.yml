@@ -69,6 +69,7 @@ jobs:
       MI300X_PUBLIC_IP: ${{ secrets.MI300X_PUBLIC_IP }}
       MI300X_SSH_USER: ${{ secrets.MI300X_SSH_USER }}
       MI300X_SSH_PRIVATE_KEY: ${{ secrets.MI300X_SSH_PRIVATE_KEY }}
+      MI300X_SSH_PASSPHRASE: ${{ secrets.MI300X_SSH_PASSPHRASE }}
       MI300X_HF_TOKEN: ${{ secrets.MI300X_HF_TOKEN }}
       MI300X_VLLM_IMAGE: ${{ secrets.MI300X_VLLM_IMAGE }}
       MI300X_TP_SIZE: ${{ secrets.MI300X_TP_SIZE }}
@@ -82,6 +83,7 @@ jobs:
           test -n "${MI300X_PUBLIC_IP}" || (echo "Missing secret: MI300X_PUBLIC_IP" && exit 1)
           test -n "${MI300X_SSH_USER}" || (echo "Missing secret: MI300X_SSH_USER" && exit 1)
           test -n "${MI300X_SSH_PRIVATE_KEY}" || (echo "Missing secret: MI300X_SSH_PRIVATE_KEY" && exit 1)
+          test -n "${MI300X_SSH_PASSPHRASE}" || (echo "Missing secret: MI300X_SSH_PASSPHRASE" && exit 1)
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -104,19 +106,54 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "${MI300X_PUBLIC_IP}" >> ~/.ssh/known_hosts
 
+      - name: Load SSH key into agent
+        run: |
+          eval "$(ssh-agent -s)"
+          cat > /tmp/askpass.sh <<'EOF'
+          #!/usr/bin/env bash
+          echo "${MI300X_SSH_PASSPHRASE}"
+          EOF
+          chmod 700 /tmp/askpass.sh
+          export SSH_ASKPASS=/tmp/askpass.sh
+          export SSH_ASKPASS_REQUIRE=force
+          export DISPLAY=:0
+          setsid ssh-add ~/.ssh/id_ed25519 < /dev/null
+          ssh-add -l
+
       - name: Validate SSH private key format
         run: |
-          ssh-keygen -y -f ~/.ssh/id_ed25519 >/dev/null || (echo "Invalid MI300X_SSH_PRIVATE_KEY format/content" && exit 1)
+          ssh-keygen -y -f ~/.ssh/id_ed25519 -P "${MI300X_SSH_PASSPHRASE}" >/dev/null || (echo "Invalid MI300X_SSH_PRIVATE_KEY format/content/passphrase" && exit 1)
 
       - name: Preflight SSH connectivity diagnostics
         run: |
           echo "Testing TCP connectivity to ${MI300X_PUBLIC_IP}:22"
           nc -zv -w 10 "${MI300X_PUBLIC_IP}" 22 || (echo "Cannot reach SSH port 22 from GitHub runner. Check cloud firewall/host firewall/network ACL." && exit 1)
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${MI300X_SSH_USER}@${MI300X_PUBLIC_IP}" "echo SSH connectivity OK"
+          eval "$(ssh-agent -s)"
+          cat > /tmp/askpass.sh <<'EOF'
+          #!/usr/bin/env bash
+          echo "${MI300X_SSH_PASSPHRASE}"
+          EOF
+          chmod 700 /tmp/askpass.sh
+          export SSH_ASKPASS=/tmp/askpass.sh
+          export SSH_ASKPASS_REQUIRE=force
+          export DISPLAY=:0
+          setsid ssh-add ~/.ssh/id_ed25519 < /dev/null
+          ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${MI300X_SSH_USER}@${MI300X_PUBLIC_IP}" "echo SSH connectivity OK"
 
       - name: Deploy with Ansible
         run: |
+          eval "$(ssh-agent -s)"
+          cat > /tmp/askpass.sh <<'EOF'
+          #!/usr/bin/env bash
+          echo "${MI300X_SSH_PASSPHRASE}"
+          EOF
+          chmod 700 /tmp/askpass.sh
+          export SSH_ASKPASS=/tmp/askpass.sh
+          export SSH_ASKPASS_REQUIRE=force
+          export DISPLAY=:0
+          setsid ssh-add ~/.ssh/id_ed25519 < /dev/null
           export ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
+          export ANSIBLE_HOST_KEY_CHECKING=False
           ansible-playbook -i ansible/hosts.ini ansible/deploy-mi300x.yml \
             -e mi300x_hf_token="${MI300X_HF_TOKEN}" \
             -e mi300x_vllm_image="${MI300X_VLLM_IMAGE}" \
@@ -124,7 +161,17 @@ jobs:
 
       - name: Capture and print baseline report
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${MI300X_SSH_USER}@${MI300X_PUBLIC_IP}" "\
+          eval "$(ssh-agent -s)"
+          cat > /tmp/askpass.sh <<'EOF'
+          #!/usr/bin/env bash
+          echo "${MI300X_SSH_PASSPHRASE}"
+          EOF
+          chmod 700 /tmp/askpass.sh
+          export SSH_ASKPASS=/tmp/askpass.sh
+          export SSH_ASKPASS_REQUIRE=force
+          export DISPLAY=:0
+          setsid ssh-add ~/.ssh/id_ed25519 < /dev/null
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${MI300X_SSH_USER}@${MI300X_PUBLIC_IP}" "\
             cd /opt/llm-gpu-infra && \
             chmod +x script/capture-baseline-report.sh && \
             script/capture-baseline-report.sh script http://127.0.0.1:8000 && \
