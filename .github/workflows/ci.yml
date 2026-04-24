@@ -9,6 +9,15 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      MI300X_PUBLIC_IP: ${{ secrets.MI300X_PUBLIC_IP }}
+      MI300X_SSH_USER: ${{ secrets.MI300X_SSH_USER }}
+      MI300X_HF_TOKEN: ${{ secrets.MI300X_HF_TOKEN }}
+      MI300X_VLLM_IMAGE: ${{ secrets.MI300X_VLLM_IMAGE }}
+      MI300X_TP_SIZE: ${{ secrets.MI300X_TP_SIZE }}
+      HUGGING_FACE_HUB_TOKEN: ${{ secrets.MI300X_HF_TOKEN }}
+      VLLM_IMAGE: ${{ secrets.MI300X_VLLM_IMAGE }}
+      TP_SIZE: ${{ secrets.MI300X_TP_SIZE }}
 
     steps:
       - name: Checkout repository
