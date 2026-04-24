@@ -38,9 +38,17 @@ HOSTNAME_VAL="$(hostname)"
 GIT_COMMIT="$(git -C "${SCRIPT_DIR}/.." rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 IMAGE_DIGEST="$(docker inspect --format '{{.Image}}' "${CONTAINER_NAME}" 2>/dev/null || echo "unknown")"
 
-LATEST_SERVE_LOG="$(ls -1t /opt/llm/logs/bench-serve-*.log 2>/dev/null | head -n 1 || true)"
-LATEST_LATENCY_LOG="$(ls -1t /opt/llm/logs/bench-latency-*.log 2>/dev/null | head -n 1 || true)"
-LATEST_THROUGHPUT_LOG="$(ls -1t /opt/llm/logs/bench-throughput-*.log 2>/dev/null | head -n 1 || true)"
+latest_log_file() {
+  local pattern="$1"
+  find /opt/llm/logs -maxdepth 1 -type f -name "${pattern}" -printf '%T@ %p\n' 2>/dev/null \
+    | sort -nr \
+    | head -n 1 \
+    | cut -d' ' -f2-
+}
+
+LATEST_SERVE_LOG="$(latest_log_file 'bench-serve-*.log')"
+LATEST_LATENCY_LOG="$(latest_log_file 'bench-latency-*.log')"
+LATEST_THROUGHPUT_LOG="$(latest_log_file 'bench-throughput-*.log')"
 
 cat >"${REPORT_FILE}" <<EOF
 # Baseline Results (${STAMP} UTC)
