@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${MI300X_ENV_FILE:-${SCRIPT_DIR}/../mi300x.env}"
+# shellcheck disable=SC1090
 source "${ENV_FILE}"
 
 LOG_FILE="${WORKDIR_HOST}/logs/vllm-serve.log"
