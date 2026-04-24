@@ -1,0 +1,23 @@
+# Local secrets/config
+mi300x.env
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Ansible artifacts
+*.retry
+.ansible/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# OS/editor files
+.DS_Store
+.vscode/
+.idea/
