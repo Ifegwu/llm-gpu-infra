@@ -1,0 +1,15 @@
+extends: default
+
+rules:
+  # GitHub Actions uses `on:` which default yamllint can misread
+  truthy:
+    allowed-values: ["true", "false", "on", "off"]
+    check-keys: false
+
+  # Keep lint useful but practical for CI/workflow/env lines
+  line-length:
+    max: 180
+    level: warning
+
+  # Not required for our YAML files
+  document-start: disable
