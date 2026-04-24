@@ -1,0 +1,18 @@
+[Unit]
+Description=vLLM MI300X Qwen3.6-27B Container Service
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/llm-gpu-infra/script
+ExecStart=/opt/llm-gpu-infra/script/run-vllm-container.sh
+ExecStart=/opt/llm-gpu-infra/script/start-qwen36-27b.sh
+ExecStop=/usr/bin/docker rm -f vllm-mi300x
+TimeoutStartSec=0
+User=root
+
+[Install]
+WantedBy=multi-user.target
