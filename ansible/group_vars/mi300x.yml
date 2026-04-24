@@ -1,0 +1,21 @@
+---
+# Remote deployment paths
+remote_repo_path: /opt/llm-gpu-infra
+remote_script_path: "{{ remote_repo_path }}/script"
+
+# vLLM runtime configuration written into repo-root mi300x.env
+mi300x_model_id: "Qwen/Qwen3.6-27B"
+mi300x_vllm_image: "rocm/vllm-dev:nightly_main_20260211"
+mi300x_container_name: "vllm-mi300x"
+mi300x_host_port: "8000"
+mi300x_tp_size: "1"
+mi300x_hf_home: "/opt/llm/hf-cache"
+mi300x_workdir_host: "/opt/llm"
+mi300x_workdir_container: "/workspace"
+mi300x_vllm_rocm_use_aiter: "1"
+mi300x_vllm_use_aiter_unified_attention: "1"
+mi300x_vllm_rocm_use_aiter_mha: "0"
+mi300x_hf_token: ""
+
+# Play behavior
+run_validation: true

@@ -1,0 +1,7 @@
+---
+- name: Deploy Qwen3.6-27B vLLM on MI300X
+  hosts: mi300x
+  become: true
+  gather_facts: true
+  roles:
+    - role: mi300x_vllm

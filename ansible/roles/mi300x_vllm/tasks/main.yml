@@ -1,0 +1,55 @@
+---
+- name: Ensure remote repo directory exists
+  ansible.builtin.file:
+    path: "{{ remote_repo_path }}"
+    state: directory
+    mode: "0755"
+
+- name: Copy local repo contents to remote host
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../"
+    dest: "{{ remote_repo_path }}/"
+    recursive: true
+    delete: false
+    rsync_opts:
+      - "--exclude=.git"
+
+- name: Ensure script files are executable
+  ansible.builtin.shell: chmod +x "{{ remote_script_path }}"/*.sh
+  args:
+    executable: /bin/bash
+
+- name: Configure repo-root mi300x.env for target host
+  ansible.builtin.copy:
+    dest: "{{ remote_repo_path }}/mi300x.env"
+    mode: "0644"
+    content: |
+      MODEL_ID="{{ mi300x_model_id }}"
+      VLLM_IMAGE="{{ mi300x_vllm_image }}"
+      CONTAINER_NAME="{{ mi300x_container_name }}"
+      HOST_PORT="{{ mi300x_host_port }}"
+      TP_SIZE="{{ mi300x_tp_size }}"
+      HF_HOME="{{ mi300x_hf_home }}"
+      WORKDIR_HOST="{{ mi300x_workdir_host }}"
+      WORKDIR_CONTAINER="{{ mi300x_workdir_container }}"
+      VLLM_ROCM_USE_AITER="{{ mi300x_vllm_rocm_use_aiter }}"
+      VLLM_USE_AITER_UNIFIED_ATTENTION="{{ mi300x_vllm_use_aiter_unified_attention }}"
+      VLLM_ROCM_USE_AITER_MHA="{{ mi300x_vllm_rocm_use_aiter_mha }}"
+      HUGGING_FACE_HUB_TOKEN="{{ mi300x_hf_token }}"
+
+- name: Install host prerequisites
+  ansible.builtin.command: "{{ remote_script_path }}/install-host-prereqs.sh"
+  changed_when: true
+
+- name: Start vLLM container
+  ansible.builtin.command: "{{ remote_script_path }}/run-vllm-container.sh"
+  changed_when: true
+
+- name: Start Qwen server
+  ansible.builtin.command: "{{ remote_script_path }}/start-qwen36-27b.sh"
+  changed_when: true
+
+- name: Validate endpoint
+  ansible.builtin.command: "{{ remote_script_path }}/validate-endpoint.sh http://127.0.0.1:{{ mi300x_host_port }}"
+  when: run_validation | bool
+  changed_when: false
