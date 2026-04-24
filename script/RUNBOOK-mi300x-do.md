@@ -64,7 +64,17 @@ script/benchmark-qwen36-27b.sh throughput
 
 Outputs are in `/opt/llm/logs`.
 
-## 6) Manual fallback (without Ansible)
+## 6) Capture baseline report
+After validation and benchmarks, generate a timestamped baseline report:
+
+```bash
+cd /opt/llm-gpu-infra
+script/capture-baseline-report.sh
+```
+
+This writes `script/baseline-results-<timestamp>.md` with runtime config, validation summary, and references to the latest benchmark logs.
+
+## 7) Manual fallback (without Ansible)
 If needed, execute directly on remote:
 
 ```bash
@@ -75,7 +85,7 @@ script/start-qwen36-27b.sh
 script/validate-endpoint.sh
 ```
 
-## 7) Troubleshooting
+## 8) Troubleshooting
 - model download failure: set `mi300x_hf_token` in `ansible/group_vars/mi300x.yml`
 - OOM: reduce concurrency/output length or increase `mi300x_tp_size`
 - endpoint unreachable: verify DigitalOcean firewall + host firewall on `8000`

@@ -5,6 +5,7 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 jobs:
   validate:
@@ -58,3 +59,65 @@ jobs:
       - name: Validate Ansible syntax
         run: |
           ansible-playbook -i ansible/hosts.ini ansible/deploy-mi300x.yml --syntax-check
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      MI300X_PUBLIC_IP: ${{ secrets.MI300X_PUBLIC_IP }}
+      MI300X_SSH_USER: ${{ secrets.MI300X_SSH_USER }}
+      MI300X_SSH_PRIVATE_KEY: ${{ secrets.MI300X_SSH_PRIVATE_KEY }}
+      MI300X_HF_TOKEN: ${{ secrets.MI300X_HF_TOKEN }}
+      MI300X_VLLM_IMAGE: ${{ secrets.MI300X_VLLM_IMAGE }}
+      MI300X_TP_SIZE: ${{ secrets.MI300X_TP_SIZE }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate required deployment secrets
+        run: |
+          test -n "${MI300X_PUBLIC_IP}" || (echo "Missing secret: MI300X_PUBLIC_IP" && exit 1)
+          test -n "${MI300X_SSH_USER}" || (echo "Missing secret: MI300X_SSH_USER" && exit 1)
+          test -n "${MI300X_SSH_PRIVATE_KEY}" || (echo "Missing secret: MI300X_SSH_PRIVATE_KEY" && exit 1)
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deploy tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync openssh-client
+          python -m pip install --upgrade pip
+          pip install ansible-core
+          ansible-galaxy collection install ansible.posix
+
+      - name: Configure SSH key for deploy
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${MI300X_SSH_PRIVATE_KEY}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${MI300X_PUBLIC_IP}" >> ~/.ssh/known_hosts
+
+      - name: Deploy with Ansible
+        run: |
+          ansible-playbook -i ansible/hosts.ini ansible/deploy-mi300x.yml \
+            -e mi300x_hf_token="${MI300X_HF_TOKEN}" \
+            -e mi300x_vllm_image="${MI300X_VLLM_IMAGE}" \
+            -e mi300x_tp_size="${MI300X_TP_SIZE}"
+
+      - name: Capture and print baseline report
+        run: |
+          ssh -o StrictHostKeyChecking=no "${MI300X_SSH_USER}@${MI300X_PUBLIC_IP}" "\
+            cd /opt/llm-gpu-infra && \
+            chmod +x script/capture-baseline-report.sh && \
+            script/capture-baseline-report.sh script http://127.0.0.1:8000 && \
+            latest=\$(ls -1t script/baseline-results-*.md | head -n 1) && \
+            echo \"Baseline report file: \$latest\" && \
+            echo \"----- BEGIN BASELINE REPORT -----\" && \
+            cat \"\$latest\" && \
+            echo \"----- END BASELINE REPORT -----\""
